@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f3xx_hal_adc.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -32,6 +31,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define TELEMETRIA_PERIODO_MS 1000U
+
+#define ADC_RESOLUCION_BITS 12U
+#define ADC_MAXIMO ((1UL << ADC_RESOLUCION_BITS) - 1UL)
+
+
 
 /* USER CODE END PD */
 
@@ -57,6 +63,9 @@ volatile uint32_t ultimo_tick_adc = 0;
 volatile uint32_t ultimo_tick_led = 0;
 //para el control de tiempo de la telemetria
 volatile uint32_t ultimo_tick_telemetria = 0;
+
+//porcentaje de la lectura del adc
+uint32_t porcentaje_adc = 0;
 
 /* USER CODE END PV */
 
@@ -122,29 +131,43 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-    if (ms_tick <= 1000)
-    {
-      if ((ms_tick % 100U) == 0U && ms_tick != ultimo_tick_adc)
-        {
-          ultimo_tick_adc = ms_tick;
-          LecturaADC = HAL_ADC_GetValue(&hadc1);
-        }
-      if ((ms_tick % 500U) == 0U && ms_tick != ultimo_tick_adc)
-        {
-          ultimo_tick_l = ms_tick;
-          HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-        }
-    }
-    else
-    {
-      ms_tick = 0;
-    }
     
+
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    
+    if (ms_tick <= 2000)
+    {
+      if ((ms_tick % 100U) == 0U )
+        {
+          ultimo_tick_adc = ms_tick;
+
+          uint32_t adc_actual = LecturaADC;
+          porcentaje_adc = (uint8_t)((100UL * adc_actual + ADC_MAXIMO / 2UL) / ADC_MAXIMO);
+        }
+
+      if ((ms_tick % 500) == 0 && ms_tick != ultimo_tick_led)
+        {
+          ultimo_tick_led = ms_tick;
+          HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        }
+        
+        uint32_t ahora = ms_tick;
+
+      if ((uint32_t)(ahora - ultimo_tick_telemetria) >= TELEMETRIA_PERIODO_MS)
+      {
+        ultimo_tick_telemetria = ahora;
+
+        /* Aquí se toma la lectura, se convierte a porcentaje
+        y se prepara la cadena para transmitir. */
+      }
+    }
+    else if(ms_tick > 3000U)
+    {
+      ms_tick = 0;
+    }
   }
   /* USER CODE END 3 */
 }
