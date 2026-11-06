@@ -1,0 +1,3 @@
+VREF= 3.3v
+N= 12bits
+Canal elegido= PA0

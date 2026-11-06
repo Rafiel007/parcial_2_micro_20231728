@@ -122,7 +122,7 @@ int main(void)
 
   HAL_TIM_Base_Start_IT(&htim6);
 
-  HAL_ADC_Start_DMA(&hadc1, &LecturaADC,1);
+ 
   
 
   /* USER CODE END 2 */
@@ -131,44 +131,41 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+     uint32_t ahora = ms_tick;
     
-
-
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-    
-    if (ms_tick <= 2000)
-    {
-      if ((ms_tick % 100U) == 0U )
+      if ((uint32_t)(ahora - ultimo_tick_adc) >= 100U)
         {
-          ultimo_tick_adc = ms_tick;
+          ultimo_tick_adc = ahora;
+
+           HAL_ADC_Start_DMA(&hadc1, &LecturaADC,1);
 
           uint32_t adc_actual = LecturaADC;
           porcentaje_adc = (uint8_t)((100UL * adc_actual + ADC_MAXIMO / 2UL) / ADC_MAXIMO);
         }
 
-      if ((ms_tick % 500) == 0 && ms_tick != ultimo_tick_led)
+      if ((uint32_t)(ahora - ultimo_tick_led) >= 500)
         {
-          ultimo_tick_led = ms_tick;
+          ultimo_tick_led = ahora;
           HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
         }
         
-        uint32_t ahora = ms_tick;
-
-      if ((uint32_t)(ahora - ultimo_tick_telemetria) >= TELEMETRIA_PERIODO_MS)
+      if ((uint32_t)(ahora - ultimo_tick_telemetria) >= 1000U)
       {
         ultimo_tick_telemetria = ahora;
 
         /* Aquí se toma la lectura, se convierte a porcentaje
         y se prepara la cadena para transmitir. */
       }
-    }
-    else if(ms_tick > 3000U)
-    {
-      ms_tick = 0;
-    }
+    
+    
   }
+
+
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+    
+   
   /* USER CODE END 3 */
 }
 
@@ -242,7 +239,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
@@ -293,9 +290,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 79;
+  htim6.Init.Prescaler = 8-1;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 99;
+  htim6.Init.Period = 1000-1;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
