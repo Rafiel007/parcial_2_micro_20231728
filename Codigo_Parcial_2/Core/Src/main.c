@@ -67,6 +67,30 @@ volatile uint32_t ultimo_tick_telemetria = 0;
 //porcentaje de la lectura del adc
 uint32_t porcentaje_adc = 0;
 
+//Boton B1
+
+//estados del boton
+typedef enum {
+    ESTADO_PAUSE = 0,
+    ESTADO_RUN
+} EstadoSistema_t;
+
+EstadoSistema_t estado_sistema = ESTADO_PAUSE;
+
+// control antirrebote del botón B1 
+typedef enum {
+    BTN_LIBRE = 0,
+    BTN_ANTIRBT_PRSS,
+    BTN_ESPERANDO_LIBERACION,
+    BTN_ANTIRBT_LIBR
+} EstadoBoton_t;
+
+EstadoBoton_t estado_btn = BTN_LIBRE;
+uint32_t tick_boton_antirbt = 0;
+
+
+#define BOTON_PRESIONADO() (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -131,6 +155,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    /*funciones de la 1 a la 3*/
      uint32_t ahora = ms_tick;
     
       if ((uint32_t)(ahora - ultimo_tick_adc) >= 100U)
@@ -157,6 +182,64 @@ int main(void)
         y se prepara la cadena para transmitir. */
       }
     
+      // Control del botón B1 con antirrebote
+      switch (estado_btn)
+      {
+          case BTN_LIBRE:
+              if (BOTON_PRESIONADO())
+              {
+                  tick_boton_antirbt = ahora;
+                  estado_btn = BTN_ANTIRBT_PRSS;
+              }
+              break;
+
+          case BTN_ANTIRBT_PRSS:
+              if ((uint32_t)(ahora - tick_boton_antirbt) >= 30U)
+              {
+                  if (BOTON_PRESIONADO()) // Confirmamos estabilidad tras 30ms
+                  {
+                      // --- ACCIÓN VÁLIDA: Alternar RUN / PAUSE ---
+                      if (estado_sistema == ESTADO_PAUSE) {
+                          estado_sistema = ESTADO_RUN;
+                      } else {
+                          estado_sistema = ESTADO_PAUSE;
+                      }
+                      
+                      estado_btn = BTN_ESPERANDO_LIBERACION;
+                  }
+                  else
+                  {
+                      // Falso rebote, volvemos a libre
+                      estado_btn = BTN_LIBRE;
+                  }
+              }
+              break;
+
+          case BTN_ESPERANDO_LIBERACION:
+              if (!BOTON_PRESIONADO()) // El usuario comienza a soltar el botón
+              {
+                  tick_boton_antirbt = ahora;
+                  estado_btn = BTN_ANTIRBT_LIBR;
+              }
+              break;
+
+          case BTN_ANTIRBT_LIBR:
+              if ((uint32_t)(ahora - tick_boton_antirbt) >= 30U)
+              {
+                  if (!BOTON_PRESIONADO()) // Confirmamos liberación completa
+                  {
+                      estado_btn = BTN_LIBRE;
+                  }
+                  else
+                  {
+                      // Sigue rebotando al soltar, esperamos de nuevo
+                      estado_btn = BTN_ESPERANDO_LIBERACION;
+                  }
+              }
+              break;
+      }
+
+
     
   }
 
@@ -326,7 +409,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 38400;
+  huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -380,6 +463,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LED_ALARMA_GPIO_Port, LED_ALARMA_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
@@ -387,6 +473,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LED_ALARMA_Pin */
+  GPIO_InitStruct.Pin = LED_ALARMA_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED_ALARMA_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LED_Pin */
   GPIO_InitStruct.Pin = LED_Pin;
