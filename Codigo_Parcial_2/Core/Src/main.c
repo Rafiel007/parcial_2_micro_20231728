@@ -88,6 +88,14 @@ typedef enum {
 EstadoBoton_t estado_btn = BTN_LIBRE;
 uint32_t tick_boton_antirbt = 0;
 
+// Variables para la alarma
+uint32_t thr = 70U;
+uint32_t thr_anterior = 70U;
+uint8_t alarma_activa = 0;
+
+
+#define LED_ALARMA_ON() (HAL_GPIO_WritePin(LED_ALARMA_GPIO_Port, LED_ALARMA_Pin, GPIO_PIN_SET))
+#define LED_ALARMA_OFF() (HAL_GPIO_WritePin(LED_ALARMA_GPIO_Port, LED_ALARMA_Pin, GPIO_PIN_RESET))
 
 #define BOTON_PRESIONADO() (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
 
@@ -178,8 +186,7 @@ int main(void)
       {
         ultimo_tick_telemetria = ahora;
 
-        /* Aquí se toma la lectura, se convierte a porcentaje
-        y se prepara la cadena para transmitir. */
+        /* Aquí se tomara la telemetria */
       }
     
       // Control del botón B1 con antirrebote
@@ -198,7 +205,7 @@ int main(void)
               {
                   if (BOTON_PRESIONADO()) // Confirmamos estabilidad tras 30ms
                   {
-                      // --- ACCIÓN VÁLIDA: Alternar RUN / PAUSE ---
+                      //aca alterna entre y RUN / PAUSE
                       if (estado_sistema == ESTADO_PAUSE) {
                           estado_sistema = ESTADO_RUN;
                       } else {
@@ -216,7 +223,7 @@ int main(void)
               break;
 
           case BTN_ESPERANDO_LIBERACION:
-              if (!BOTON_PRESIONADO()) // El usuario comienza a soltar el botón
+              if (!BOTON_PRESIONADO()) 
               {
                   tick_boton_antirbt = ahora;
                   estado_btn = BTN_ANTIRBT_LIBR;
@@ -239,10 +246,30 @@ int main(void)
               break;
       }
 
+      //SISTEMA DE ALARMA
+      
+        if (estado_sistema == ESTADO_RUN)
+        {
+          if (porcentaje_adc >= thr)
+          {
+            LED_ALARMA_ON();
+          }
+
+          else if (porcentaje_adc < thr-5U)
+          {
+      
+            LED_ALARMA_OFF();
+          }
+        }
+        else if(estado_sistema == ESTADO_PAUSE)
+        {
+          LED_ALARMA_OFF();
+        }
+
+
 
     
   }
-
 
     /* USER CODE END WHILE */
 
