@@ -18,6 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "string.h"
+#include "stdio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -90,7 +92,6 @@ uint32_t tick_boton_antirbt = 0;
 
 // Variables para la alarma
 uint32_t thr = 70U;
-uint32_t thr_anterior = 70U;
 uint8_t alarma_activa = 0;
 
 
@@ -98,6 +99,13 @@ uint8_t alarma_activa = 0;
 #define LED_ALARMA_OFF() (HAL_GPIO_WritePin(LED_ALARMA_GPIO_Port, LED_ALARMA_Pin, GPIO_PIN_RESET))
 
 #define BOTON_PRESIONADO() (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
+
+
+#define TAM_BUFFER_RX 32
+char buffer_rx[TAM_BUFFER_RX];
+uint8_t indice_rx = 0;
+uint8_t dato_rx; 
+volatile uint8_t comando_recibido_flag = 0;
 
 /* USER CODE END PV */
 
@@ -108,7 +116,10 @@ static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM6_Init(void);
+
+
 /* USER CODE BEGIN PFP */
+void ProcesarComandoUART(char *cmd);
 
 /* USER CODE END PFP */
 
@@ -154,6 +165,10 @@ int main(void)
 
   HAL_TIM_Base_Start_IT(&htim6);
 
+  HAL_UART_Receive_IT(&huart2, &dato_rx, 1);
+
+  uint8_t mensaje_inicio[] = "UART encendido\r\n";
+  HAL_UART_Transmit(&huart2, mensaje_inicio, sizeof(mensaje_inicio) - 1, HAL_MAX_DELAY);
  
   
 
@@ -163,9 +178,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /*funciones de la 1 a la 3*/
+    //------------------------//
+    //funciones de la 1 a la 3//
+    //------------------------//
+
      uint32_t ahora = ms_tick;
     
+     //tick del adc cada 100ms
       if ((uint32_t)(ahora - ultimo_tick_adc) >= 100U)
         {
           ultimo_tick_adc = ahora;
@@ -176,20 +195,31 @@ int main(void)
           porcentaje_adc = (uint8_t)((100UL * adc_actual + ADC_MAXIMO / 2UL) / ADC_MAXIMO);
         }
 
+        //tick del led cada 500ms
       if ((uint32_t)(ahora - ultimo_tick_led) >= 500)
         {
           ultimo_tick_led = ahora;
           HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
         }
-        
+
+        //tick de la telemetria cada 1000ms
       if ((uint32_t)(ahora - ultimo_tick_telemetria) >= 1000U)
       {
         ultimo_tick_telemetria = ahora;
+       
+        //aca colocare la telemetria cada 1 segundo
 
-        /* Aquí se tomara la telemetria */
       }
-    
+
+       if (comando_recibido_flag == 1)
+      {
+          comando_recibido_flag = 0;
+          ProcesarComandoUART(buffer_rx);
+      }
+      //--------------------------------------//
       // Control del botón B1 con antirrebote
+      //--------------------------------------//
+
       switch (estado_btn)
       {
           case BTN_LIBRE:
@@ -216,7 +246,6 @@ int main(void)
                   }
                   else
                   {
-                      // Falso rebote, volvemos a libre
                       estado_btn = BTN_LIBRE;
                   }
               }
@@ -233,21 +262,22 @@ int main(void)
           case BTN_ANTIRBT_LIBR:
               if ((uint32_t)(ahora - tick_boton_antirbt) >= 30U)
               {
-                  if (!BOTON_PRESIONADO()) // Confirmamos liberación completa
+                  if (!BOTON_PRESIONADO()) 
                   {
                       estado_btn = BTN_LIBRE;
                   }
                   else
                   {
-                      // Sigue rebotando al soltar, esperamos de nuevo
+                     
                       estado_btn = BTN_ESPERANDO_LIBERACION;
                   }
               }
               break;
       }
-
+      //------------------//  
       //SISTEMA DE ALARMA
-      
+      //------------------//
+
         if (estado_sistema == ESTADO_RUN)
         {
           if (porcentaje_adc >= thr)
@@ -255,9 +285,8 @@ int main(void)
             LED_ALARMA_ON();
           }
 
-          else if (porcentaje_adc < thr-5U)
+          else if (porcentaje_adc < thr-5U )
           {
-      
             LED_ALARMA_OFF();
           }
         }
@@ -265,10 +294,6 @@ int main(void)
         {
           LED_ALARMA_OFF();
         }
-
-
-
-    
   }
 
     /* USER CODE END WHILE */
@@ -522,12 +547,74 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+
+// funcion de tiempo de 1ms
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM6)
   {
     ms_tick++;
   }
+}
+
+
+      //------------------//  
+      //comando por uart
+      //------------------//
+void ProcesarComandoUART(char *cmd)
+{
+  // 1. Comando START
+    if (strcmp(cmd, "START") == 0)
+    {
+        estado_sistema = ESTADO_RUN;
+        char *resp = "OK RUN\r\n";
+        HAL_UART_Transmit(&huart2, (uint8_t*)resp, strlen(resp), HAL_MAX_DELAY);
+    }
+
+    // 2. comando STOP
+    else if (strcmp(cmd, "STOP") == 0)
+    {
+        estado_sistema = ESTADO_PAUSE;
+        char *resp = "OK PAUSE\r\n";
+        HAL_UART_Transmit(&huart2, (uint8_t*)resp, strlen(resp), HAL_MAX_DELAY);
+    }
+
+    // 3. 
+
+    else 
+    {
+      char *resp = "ERR\r\n";
+      HAL_UART_Transmit(&huart2, (uint8_t*)resp, strlen(resp), HAL_MAX_DELAY);
+    }
+
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2)
+    {
+        
+        if (dato_rx == '\n' || dato_rx == '\r')
+        {
+            if (indice_rx > 0) 
+            {
+                buffer_rx[indice_rx] = '\0'; 
+                comando_recibido_flag = 1;   
+                indice_rx = 0;               
+            }
+        }
+        else
+        {
+            
+            if (indice_rx < (TAM_BUFFER_RX - 1))
+            {
+                buffer_rx[indice_rx++] = (char)dato_rx;
+            }
+        }
+
+      
+        HAL_UART_Receive_IT(&huart2, &dato_rx, 1);
+    }
 }
 
 /* USER CODE END 4 */
