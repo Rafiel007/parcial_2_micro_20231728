@@ -16,7 +16,7 @@
   ******************************************************************************
 
 //-------------------------------------------------------------------------------------//
-//link de video: https://drive.google.com/file/d/19yTOyJ78owesYi1PxdN6MhENthVEJEvN/view?usp=sharing
+//link de video: https://youtu.be/s2w25CqE0jE
 //
 //link de github: https://github.com/Rafiel007/parcial_2_micro_20231728.git
 //-------------------------------------------------------------------------------------//
