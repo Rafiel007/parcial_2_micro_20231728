@@ -1,3 +1,18 @@
-VREF= 3.3v
-N= 12bits
-Canal elegido= PA0
+Nombre: Rafael Eli Beras Vargas
+Matricula: 20231728
+
+microcontrolador: stm32-NUCLEO-f302R8
+VREF = 3.3v
+N = 12bits
+Canal elegido para timer = PA0
+canal elegido para alarma = PA1
+
+calculos de temporizador
+
+reloj= 8Mhz
+prescaler = 8Mhz/8 = 1Mhz 
+
+frecuencia 1Mhz / 1000 = 1khz
+
+T(periodo)= 1/1000hz = 0.001s o 1ms
+

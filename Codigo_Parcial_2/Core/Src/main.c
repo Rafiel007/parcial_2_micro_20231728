@@ -76,6 +76,8 @@ volatile uint32_t ultimo_tick_led = 0;
 //para el control de tiempo de la telemetria
 volatile uint32_t ultimo_tick_telemetria = 0;
 
+volatile uint32_t ultimo_tiempo_teclado = 0;
+
 //porcentaje de la lectura del adc o PTC
 uint32_t porcentaje_adc = 0;
 
@@ -113,7 +115,7 @@ uint8_t alarma_activa = 0;
 //buffer de 32 bits de texto
 #define TAM_BUFFER_RX 32
 char buffer_rx[TAM_BUFFER_RX];
-uint8_t indice_rx = 0;
+volatile uint16_t indice_rx = 0;
 uint8_t dato_rx; 
 volatile uint8_t comando_recibido_flag = 0;
 
@@ -214,12 +216,14 @@ int main(void)
         }
 
         //tick de la telemetria cada 1000ms
-      if ((uint32_t)(ahora - ultimo_tick_telemetria) >= 1000U)
+      if ((indice_rx == 0) && ((uint32_t)(ahora - ultimo_tiempo_teclado) > 5000U))
       {
-        ultimo_tick_telemetria = ahora;
-
-       if (indice_rx == 0)
+        if ((uint32_t)(ahora - ultimo_tick_telemetria) >= 1000U)
         {
+          ultimo_tick_telemetria = ahora;
+
+        
+
          char mensaje_tel[64];
           int len = snprintf(mensaje_tel, sizeof(mensaje_tel), 
                    "t=%lu;ADC=%lu;PCT=%lu;THR=%lu;MODE=%s;ALARM=%u\r\n",
@@ -232,6 +236,7 @@ int main(void)
 
         
                    HAL_UART_Transmit(&huart2, (uint8_t*)mensaje_tel, len, HAL_MAX_DELAY);
+        
         }
       }
 
@@ -586,7 +591,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 
       //------------------//  
-      //comando por uart
+      //comandos por uart
       //------------------//
 void ProcesarComandoUART(char *cmd)
 {
@@ -624,6 +629,35 @@ void ProcesarComandoUART(char *cmd)
    
    } 
 
+   // 4. control del umbral o THR
+  
+  else if (strncmp(cmd, "THR ", 4) == 0)
+    {
+        int valor_leido;
+       
+        
+        if (sscanf(cmd + 4, "%d", &valor_leido) == 1)
+        {
+            if (valor_leido >= 10 && valor_leido <= 95)
+            {
+                thr = (uint32_t)valor_leido;
+                char resp[32];
+                int len = snprintf(resp, sizeof(resp), "OK THR=%lu\r\n", thr);
+                HAL_UART_Transmit(&huart2, (uint8_t*)resp, len, HAL_MAX_DELAY);
+            }
+            else
+            {
+                char *resp = "ERR\r\n";
+                HAL_UART_Transmit(&huart2, (uint8_t*)resp, strlen(resp), HAL_MAX_DELAY);
+            }
+        }
+        else
+        {
+            char *resp = "ERR\r\n";
+            HAL_UART_Transmit(&huart2, (uint8_t*)resp, strlen(resp), HAL_MAX_DELAY);
+        }
+    }
+
     // 
     else 
     {
@@ -637,7 +671,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART2)
     {
-        
+      ultimo_tiempo_teclado = ms_tick;  
+
         if (dato_rx == '\n' || dato_rx == '\r')
         {
             if (indice_rx > 0) 
