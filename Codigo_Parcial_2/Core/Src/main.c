@@ -14,6 +14,14 @@
   * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
+
+//-------------------------------------------------------------------------------------//
+//link de video:
+//
+//link de github: https://github.com/Rafiel007/parcial_2_micro_20231728.git
+//-------------------------------------------------------------------------------------//
+
+
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
@@ -61,12 +69,14 @@ uint32_t LecturaADC;
 //para el control de tiempo del adc
 volatile uint32_t ms_tick = 0;
 volatile uint32_t ultimo_tick_adc = 0;
+
 //para el control de tiempo del led
 volatile uint32_t ultimo_tick_led = 0;
+
 //para el control de tiempo de la telemetria
 volatile uint32_t ultimo_tick_telemetria = 0;
 
-//porcentaje de la lectura del adc
+//porcentaje de la lectura del adc o PTC
 uint32_t porcentaje_adc = 0;
 
 //Boton B1
@@ -100,7 +110,7 @@ uint8_t alarma_activa = 0;
 
 #define BOTON_PRESIONADO() (HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
 
-
+//buffer de 32 bits de texto
 #define TAM_BUFFER_RX 32
 char buffer_rx[TAM_BUFFER_RX];
 uint8_t indice_rx = 0;
@@ -119,6 +129,7 @@ static void MX_TIM6_Init(void);
 
 
 /* USER CODE BEGIN PFP */
+
 void ProcesarComandoUART(char *cmd);
 
 /* USER CODE END PFP */
@@ -206,9 +217,22 @@ int main(void)
       if ((uint32_t)(ahora - ultimo_tick_telemetria) >= 1000U)
       {
         ultimo_tick_telemetria = ahora;
-       
-        //aca colocare la telemetria cada 1 segundo
 
+       if (indice_rx == 0)
+        {
+         char mensaje_tel[64];
+          int len = snprintf(mensaje_tel, sizeof(mensaje_tel), 
+                   "t=%lu;ADC=%lu;PCT=%lu;THR=%lu;MODE=%s;ALARM=%u\r\n",
+                   ms_tick,                      
+                   LecturaADC,                   
+                   porcentaje_adc,               
+                   thr,                          
+                   (estado_sistema == ESTADO_RUN) ? "RUN" : "PAUSE", 
+                   alarma_activa);               
+
+        
+                   HAL_UART_Transmit(&huart2, (uint8_t*)mensaje_tel, len, HAL_MAX_DELAY);
+        }
       }
 
        if (comando_recibido_flag == 1)
@@ -283,16 +307,19 @@ int main(void)
           if (porcentaje_adc >= thr)
           {
             LED_ALARMA_ON();
+            alarma_activa = 1;
           }
 
           else if (porcentaje_adc < thr-5U )
           {
             LED_ALARMA_OFF();
+            alarma_activa = 0;
           }
         }
         else if(estado_sistema == ESTADO_PAUSE)
         {
           LED_ALARMA_OFF();
+          alarma_activa = 0;
         }
   }
 
@@ -579,8 +606,25 @@ void ProcesarComandoUART(char *cmd)
         HAL_UART_Transmit(&huart2, (uint8_t*)resp, strlen(resp), HAL_MAX_DELAY);
     }
 
-    // 3. 
+    // 3. comando STATUS
+   else if (strcmp(cmd, "STATUS") == 0) {
 
+    char mensaje_tel[64];
+      int len = snprintf(mensaje_tel, sizeof(mensaje_tel), 
+                   "t=%lu;ADC=%lu;PCT=%lu;THR=%lu;MODE=%s;ALARM=%u\r\n",
+                   ms_tick,                      // t: tiempo en ms
+                   LecturaADC,                   // ADC: lectura en bruto (12 bits)
+                   porcentaje_adc,               // PCT: porcentaje
+                   thr,                          // THR: umbral
+                   (estado_sistema == ESTADO_RUN) ? "RUN" : "PAUSE", // MODE
+                   alarma_activa);               // ALARM: 0 o 1
+
+    HAL_UART_Transmit(&huart2, (uint8_t*)mensaje_tel, len, HAL_MAX_DELAY);
+
+   
+   } 
+
+    // 
     else 
     {
       char *resp = "ERR\r\n";
