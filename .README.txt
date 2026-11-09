@@ -4,6 +4,7 @@ Matricula: 20231728
 microcontrolador: stm32-NUCLEO-f302R8
 VREF = 3.3v
 N = 12bits
+Configuración UART: 115200 baudios, 8 bits de datos, 1 bit de parada, sin paridad.
 
 canales utilizados
 Canal elegido para timer = PA0
@@ -20,6 +21,16 @@ prescaler = 8Mhz/8 = 1Mhz
 frecuencia 1Mhz / 1000 = 1khz
 
 T(periodo)= 1/1000hz = 0.001s o 1ms
+
+
+PO2 pass
+
+PO3 pass
+
+P04 pass
+
+po5 pass
+
 
 
 
