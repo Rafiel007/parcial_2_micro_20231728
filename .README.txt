@@ -24,12 +24,14 @@ T(periodo)= 1/1000hz = 0.001s o 1ms
 
 
 PO2 pass
-
 PO3 pass
-
 P04 pass
-
-po5 pass
+p05 pass
+P06 pass
+P07 pass
+PA8 pass
+PA9 pass
+PA10 pass
 
 
 
